@@ -1,0 +1,307 @@
+{
+  "name": "salesforce-ai-enrichment-pipeline",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "40bd775f-6de5-4c02-9445-5bd42e7dbff5",
+      "name": "When clicking ‘Execute workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        -608
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "openai/gpt-oss-20b",
+          "mode": "list",
+          "cachedResultName": "OPENAI/GPT-OSS-20B"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Tu es un expert en vente B2B. Pour l'entreprise nommée {{ $('Loop Over Items').item.json.Company }}, trouve son secteur d'activité, son site web et rédige un court pitch de vente personnalisé pour l'équipe commerciale.\n\nRéponds UNIQUEMENT sous format JSON avec les clés : industry, website, pitch."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "store": false
+        }
+      },
+      "id": "216c45f7-a97c-4f63-b0f5-a26633406f92",
+      "name": "Message a model",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        -608
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": "1shOr3yPK3H2BlGA",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// On récupère le texte brut là où n8n l'a caché (comme on le voit sur votre capture)\nlet rawText = $input.first().json.output[0].content[0].text;\n\n// On nettoie au cas où l'IA ajouterait des balises markdown\nlet cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();\n\n// On transforme le texte en véritable objet JSON\nlet parsedData = JSON.parse(cleanText);\n\n// On renvoie les données propres\nreturn parsedData;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -608
+      ],
+      "id": "d2e5a0af-d66d-40bc-a852-97bd8c0f5e22",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "leadId": "={{ $('Loop Over Items').item.json.Id }}",
+        "updateFields": {
+          "customFieldsUi": {
+            "customFieldsValues": [
+              {
+                "fieldId": "Company_Website__c",
+                "value": "={{ $json.website }}"
+              },
+              {
+                "fieldId": "AI_Sales_Pitch__c",
+                "value": "={{ $json.pitch }}"
+              }
+            ]
+          },
+          "industry": "=i {{ $json.industry }}"
+        }
+      },
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        -528
+      ],
+      "id": "786768dc-9878-4e9b-be2b-862ac89f5301",
+      "name": "Update a lead",
+      "credentials": {
+        "salesforceOAuth2Api": {
+          "id": "piaU5rh65AXhYZn0",
+          "name": "Salesforce account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 10,
+        "options": {
+          "conditionsUi": {
+            "conditionValues": []
+          }
+        }
+      },
+      "id": "974b5fd8-f9f5-4395-b695-55fd6357c59f",
+      "name": "Get many leads",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 1.1,
+      "position": [
+        -448,
+        -608
+      ],
+      "credentials": {
+        "salesforceOAuth2Api": {
+          "id": "piaU5rh65AXhYZn0",
+          "name": "Salesforce account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "9d4c4755-4d6c-457c-bb54-fdf2e7cb5004",
+              "leftValue": "={{ $json.AI_Sales_Pitch__c }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.4,
+      "position": [
+        -224,
+        -608
+      ],
+      "id": "6bdf098c-3a78-4dec-a2d3-0c758e617a64",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        0,
+        -608
+      ],
+      "id": "ca102a14-ac08-48aa-9542-d38dcbc3289c",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        -608
+      ],
+      "id": "3065a46c-ff04-461c-9a17-ade494390362",
+      "name": "Wait",
+      "webhookId": "709de440-535f-4d5b-be42-a6dd41bfbde8"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        288,
+        -800
+      ],
+      "id": "62802296-7439-4882-b074-9094e4ba58ea",
+      "name": "No Operation, do nothing"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get many leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many leads": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a lead": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Update a lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "321ffda3-c4ac-4d37-a5ae-980d23d75517",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "98d54724fddb3224d001d8c554ad407e685bc2b4a8e07a371aa0c1f30f7772b7"
+  },
+  "nodeGroups": [],
+  "id": "7vcl78HrgXs7PHxI",
+  "tags": []
+}
