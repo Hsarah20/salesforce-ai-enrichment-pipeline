@@ -23,7 +23,7 @@ Le workflow est conçu pour être résilient, automatique et respecter les limit
 
 <div align="center">
 
-   ![Workflow](Images/salesforce-ai-enrichment-pipeline_v1.png)
+   ![Workflow](Images/workflow_n8n.png)
 
 </div>
 
