@@ -2,17 +2,6 @@
   "name": "salesforce-ai-enrichment-pipeline",
   "nodes": [
     {
-      "parameters": {},
-      "id": "40bd775f-6de5-4c02-9445-5bd42e7dbff5",
-      "name": "When clicking ‘Execute workflow’",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        -672,
-        -608
-      ]
-    },
-    {
       "parameters": {
         "modelId": {
           "__rl": true,
@@ -37,8 +26,8 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.3,
       "position": [
-        224,
-        -608
+        704,
+        -512
       ],
       "retryOnFail": true,
       "waitBetweenTries": 5000,
@@ -51,13 +40,13 @@
     },
     {
       "parameters": {
-        "jsCode": "// On récupère le texte brut là où n8n l'a caché (comme on le voit sur votre capture)\nlet rawText = $input.first().json.output[0].content[0].text;\n\n// On nettoie au cas où l'IA ajouterait des balises markdown\nlet cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();\n\n// On transforme le texte en véritable objet JSON\nlet parsedData = JSON.parse(cleanText);\n\n// On renvoie les données propres\nreturn parsedData;"
+        "jsCode": "// 1. On récupère les données du nœud précédent (l'IA)\nlet inputData = $input.first().json;\n\n// 2. Vérification de sécurité : est-ce que l'IA a bien répondu ?\nif (!inputData || !inputData.output) {\n    if (inputData && inputData.error) {\n        throw new Error(\"Erreur de l'API IA : \" + inputData.error.message);\n    }\n    throw new Error(\"Aucune donnée 'output' reçue de l'IA. Vérifiez que le nœud 'Message a model' s'est bien exécuté (limite de requêtes atteinte ?).\");\n}\n\n// 3. On extrait le texte (avec gestion des différentes structures possibles)\nlet rawText;\nif (inputData.output[0] && inputData.output[0].content && inputData.output[0].content[0]) {\n    rawText = inputData.output[0].content[0].text;\n} else {\n    throw new Error(\"La structure de la réponse de l'IA est inattendue.\");\n}\n\n// 4. On nettoie et on parse le JSON\nlet cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();\nlet parsedData = JSON.parse(cleanText);\n\n// 5. On récupère les données originales du Lead (pour l'ID)\nlet originalLead = $('Loop Over Items').item.json;\n\n// 6. On fusionne et on renvoie\nreturn {\n  ...originalLead,\n  ...parsedData\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        576,
-        -608
+        1056,
+        -512
       ],
       "id": "d2e5a0af-d66d-40bc-a852-97bd8c0f5e22",
       "name": "Code in JavaScript"
@@ -76,17 +65,24 @@
               {
                 "fieldId": "AI_Sales_Pitch__c",
                 "value": "={{ $json.pitch }}"
+              },
+              {
+                "fieldId": "=Is_Enriched__c",
+                "value": "={{ true }}"
+              },
+              {
+                "fieldId": "Industry__c",
+                "value": "={{ $json.industry }}"
               }
             ]
-          },
-          "industry": "=i {{ $json.industry }}"
+          }
         }
       },
       "type": "n8n-nodes-base.salesforce",
       "typeVersion": 1.1,
       "position": [
-        1024,
-        -528
+        1504,
+        -480
       ],
       "id": "786768dc-9878-4e9b-be2b-862ac89f5301",
       "name": "Update a lead",
@@ -103,7 +99,16 @@
         "limit": 10,
         "options": {
           "conditionsUi": {
-            "conditionValues": []
+            "conditionValues": [
+              {
+                "field": "Is_Enriched__c",
+                "value": "={{ false }}"
+              },
+              {
+                "field": "IsConverted",
+                "value": "={{ false }}"
+              }
+            ]
           }
         }
       },
@@ -112,8 +117,8 @@
       "type": "n8n-nodes-base.salesforce",
       "typeVersion": 1.1,
       "position": [
-        -448,
-        -608
+        176,
+        -512
       ],
       "credentials": {
         "salesforceOAuth2Api": {
@@ -124,47 +129,13 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 4
-          },
-          "conditions": [
-            {
-              "id": "9d4c4755-4d6c-457c-bb54-fdf2e7cb5004",
-              "leftValue": "={{ $json.AI_Sales_Pitch__c }}",
-              "rightValue": "",
-              "operator": {
-                "type": "object",
-                "operation": "empty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.4,
-      "position": [
-        -224,
-        -608
-      ],
-      "id": "6bdf098c-3a78-4dec-a2d3-0c758e617a64",
-      "name": "Filter"
-    },
-    {
-      "parameters": {
         "options": {}
       },
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        0,
-        -608
+        480,
+        -512
       ],
       "id": "ca102a14-ac08-48aa-9542-d38dcbc3289c",
       "name": "Loop Over Items"
@@ -174,8 +145,8 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        800,
-        -608
+        1280,
+        -512
       ],
       "id": "3065a46c-ff04-461c-9a17-ade494390362",
       "name": "Wait",
@@ -186,26 +157,34 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        288,
-        -800
+        768,
+        -816
       ],
       "id": "62802296-7439-4882-b074-9094e4ba58ea",
       "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -32,
+        -512
+      ],
+      "id": "f33ada32-0a79-4345-a98e-529f0bad41d0",
+      "name": "Schedule Trigger"
     }
   ],
   "pinData": {},
   "connections": {
-    "When clicking ‘Execute workflow’": {
-      "main": [
-        [
-          {
-            "node": "Get many leads",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Message a model": {
       "main": [
         [
@@ -229,17 +208,6 @@
       ]
     },
     "Get many leads": {
-      "main": [
-        [
-          {
-            "node": "Filter",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter": {
       "main": [
         [
           {
@@ -289,14 +257,25 @@
           }
         ]
       ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "321ffda3-c4ac-4d37-a5ae-980d23d75517",
+  "versionId": "130bc38b-0de9-4b2a-b089-706d36c50696",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "98d54724fddb3224d001d8c554ad407e685bc2b4a8e07a371aa0c1f30f7772b7"
